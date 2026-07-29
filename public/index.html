@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bulk Price Editor — Antipodean</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f6f6f7; color: #121212; min-height: 100vh; }
+    .app { max-width: 900px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    /* Header */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; gap: 16px; }
+    .page-header__title { font-size: 13px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; }
+    .page-header__sub { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #888; margin-top: 2px; }
+    .btn { padding: 9px 20px; border: none; border-radius: 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn--dark { background: #121212; color: #fff; }
+    .btn--dark:hover:not(:disabled) { background: #333; }
+    .btn--outline { background: #fff; color: #121212; border: 1px solid #e0e0e0; }
+    .btn--outline:hover:not(:disabled) { border-color: #121212; }
+    .btn--danger { background: #fff; color: #c0392b; border: 1px solid #e8d5d3; }
+    .btn--danger:hover:not(:disabled) { background: #fdf3f2; }
+
+    /* Card */
+    .card { background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .card__header { padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+    .card__title { font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #888; }
+    .card__body { padding: 24px; }
+
+    /* Form */
+    .form-row { margin-bottom: 20px; }
+    .form-row:last-child { margin-bottom: 0; }
+    .form-label { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #555; margin-bottom: 8px; }
+    .form-input, .form-select { width: 100%; padding: 10px 14px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; color: #121212; background: #fff; outline: none; }
+    .form-input:focus, .form-select:focus { border-color: #121212; }
+    .form-hint { font-size: 10px; color: #aaa; letter-spacing: 0.05em; margin-top: 6px; }
+    .input-with-suffix { display: flex; align-items: center; gap: 0; }
+    .input-with-suffix .form-input { border-radius: 6px 0 0 6px; }
+    .input-suffix { padding: 10px 14px; background: #f5f5f5; border: 1px solid #e0e0e0; border-left: none; border-radius: 0 6px 6px 0; font-size: 13px; color: #888; }
+
+    /* Markets grid */
+    .markets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+    .market-check { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; transition: border-color 0.15s; }
+    .market-check:hover { border-color: #aaa; }
+    .market-check input { width: 14px; height: 14px; cursor: pointer; accent-color: #121212; flex-shrink: 0; }
+    .market-check__name { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+    .market-check__currency { font-size: 10px; color: #888; }
+    .market-check.checked { border-color: #121212; background: #fafafa; }
+
+    /* Step indicator */
+    .steps { display: flex; gap: 0; margin-bottom: 24px; }
+    .step { flex: 1; padding: 10px 16px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 2px solid #e8e8e8; color: #bbb; text-align: center; }
+    .step.active { color: #121212; border-bottom-color: #121212; }
+    .step.done { color: #888; border-bottom-color: #ccc; }
+
+    /* Preview table */
+    .preview-header { display: grid; grid-template-columns: 1fr 120px 120px 120px; gap: 12px; padding: 8px 16px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #888; border-bottom: 1px solid #f0f0f0; }
+    .preview-row { display: grid; grid-template-columns: 1fr 120px 120px 120px; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f5f5f5; align-items: center; }
+    .preview-row:last-child { border-bottom: none; }
+    .preview-row__product { min-width: 0; }
+    .preview-row__title { font-size: 11px; font-weight: 500; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .preview-row__variant { font-size: 10px; color: #888; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 2px; }
+    .preview-row__price { font-size: 12px; }
+    .preview-row__new { font-size: 12px; font-weight: 600; color: #27ae60; }
+    .preview-row__rpp { font-size: 10px; color: #aaa; text-decoration: line-through; }
+    .preview-market-tabs { display: flex; gap: 2px; background: #f0f0f0; border-radius: 6px; padding: 3px; margin-bottom: 16px; flex-wrap: wrap; }
+    .preview-market-tab { padding: 5px 12px; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; border: none; background: none; border-radius: 4px; cursor: pointer; color: #666; }
+    .preview-market-tab.active { background: #fff; color: #121212; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .preview-count { font-size: 11px; color: #888; letter-spacing: 0.05em; margin-bottom: 12px; }
+
+    /* Jobs list */
+    .job-row { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #f5f5f5; gap: 16px; flex-wrap: wrap; }
+    .job-row:last-child { border-bottom: none; }
+    .job-row__title { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; }
+    .job-row__meta { font-size: 10px; color: #888; letter-spacing: 0.05em; margin-top: 3px; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+    .badge--green { background: #e8f5e9; color: #2e7d32; }
+    .badge--grey { background: #f0f0f0; color: #888; }
+
+    /* Loading / empty */
+    .loading { padding: 48px; text-align: center; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #bbb; }
+    .empty { padding: 48px; text-align: center; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #bbb; }
+
+    /* Nav tabs */
+    .nav-tabs { display: flex; gap: 2px; background: #e8e8e8; border-radius: 6px; padding: 3px; margin-bottom: 24px; width: fit-content; }
+    .nav-tab { padding: 7px 18px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; border: none; background: none; border-radius: 4px; cursor: pointer; color: #666; }
+    .nav-tab.active { background: #fff; color: #121212; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+    /* Alert */
+    .alert { padding: 12px 16px; border-radius: 6px; font-size: 11px; letter-spacing: 0.05em; margin-bottom: 16px; }
+    .alert--error { background: #fdf3f2; color: #c0392b; border: 1px solid #f5c6c2; }
+    .alert--success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="page-header">
+    <div>
+      <div class="page-header__title">Antipodean — Bulk Price Editor</div>
+      <div class="page-header__sub">Apply sale prices across markets</div>
+    </div>
+    <button class="btn btn--dark" id="new-job-btn">+ New Price Job</button>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="jobs">Job History</button>
+    <button class="nav-tab" data-tab="new">New Job</button>
+  </div>
+
+  <div id="alert-bar"></div>
+
+  <!-- JOB HISTORY -->
+  <div id="tab-jobs">
+    <div class="card">
+      <div class="card__header"><span class="card__title">Price Change Jobs</span></div>
+      <div id="jobs-list"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- NEW JOB -->
+  <div id="tab-new" style="display:none">
+
+    <div class="steps">
+      <div class="step active" id="step-1-indicator">1. Setup</div>
+      <div class="step" id="step-2-indicator">2. Preview</div>
+      <div class="step" id="step-3-indicator">3. Apply</div>
+    </div>
+
+    <!-- Step 1: Setup -->
+    <div id="step-1">
+      <div class="card">
+        <div class="card__header"><span class="card__title">Step 1 — Job Details</span></div>
+        <div class="card__body">
+          <div class="form-row">
+            <label class="form-label">Job title (internal only)</label>
+            <input class="form-input" id="job-title" type="text" placeholder="e.g. End of Season 30% Off">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Collection</label>
+            <select class="form-select" id="collection-select">
+              <option value="">Loading collections...</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Discount %</label>
+            <div class="input-with-suffix">
+              <input class="form-input" id="discount-pct" type="number" min="1" max="99" placeholder="30">
+              <span class="input-suffix">%</span>
+            </div>
+            <div class="form-hint">New price = compare-at price (RRP) × (1 − discount%). Works correctly for items already on sale.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><span class="card__title">Step 2 — Markets</span></div>
+        <div class="card__body">
+          <div class="form-row">
+            <label class="form-label">Apply to markets</label>
+            <div class="markets-grid" id="markets-grid"><div class="loading" style="padding:20px">Loading markets...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end">
+        <button class="btn btn--dark" id="preview-btn">Preview Changes →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Preview -->
+    <div id="step-2" style="display:none">
+      <div class="card">
+        <div class="card__header">
+          <span class="card__title">Price Change Preview</span>
+          <button class="btn btn--outline" id="back-btn">← Back</button>
+        </div>
+        <div class="card__body" style="padding-bottom:0">
+          <div class="preview-market-tabs" id="preview-tabs"></div>
+        </div>
+        <div class="preview-count" style="padding: 0 24px 8px" id="preview-count"></div>
+        <div id="preview-list"></div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px">
+        <button class="btn btn--outline" id="back-btn-2">← Back</button>
+        <button class="btn btn--dark" id="apply-btn">Apply Price Changes</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Done -->
+    <div id="step-3" style="display:none">
+      <div class="card">
+        <div class="card__body" style="text-align:center; padding: 48px">
+          <div style="font-size:32px; margin-bottom:16px">✓</div>
+          <div style="font-size:13px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px">Price changes applied</div>
+          <div style="font-size:11px; color:#888; letter-spacing:0.05em; margin-bottom:24px" id="done-summary"></div>
+          <button class="btn btn--outline" id="done-btn">View Job History</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-new -->
+
+</div>
+<script>
+  var collections = [];
+  var markets = [];
+  var previewData = null;
+  var activePreviewMarket = null;
+
+  // ── Nav tabs ──
+  function showTab(name) {
+    document.getElementById('tab-jobs').style.display = name === 'jobs' ? '' : 'none';
+    document.getElementById('tab-new').style.display  = name === 'new'  ? '' : 'none';
+    document.querySelectorAll('.nav-tab').forEach(function(t) {
+      t.classList.toggle('active', t.dataset.tab === name);
+    });
+    if (name === 'jobs') loadJobs();
+  }
+  document.querySelectorAll('.nav-tab').forEach(function(t) {
+    t.addEventListener('click', function() { showTab(t.dataset.tab); });
+  });
+  document.getElementById('new-job-btn').addEventListener('click', function() { showTab('new'); });
+
+  // ── Alert ──
+  function showAlert(msg, type) {
+    var el = document.getElementById('alert-bar');
+    el.innerHTML = '<div class="alert alert--' + type + '">' + escHtml(msg) + '</div>';
+    if (type === 'success') setTimeout(function() { el.innerHTML = ''; }, 4000);
+  }
+  function clearAlert() { document.getElementById('alert-bar').innerHTML = ''; }
+
+  // ── Load collections ──
+  fetch('/api/collections')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      collections = data.collections || [];
+      var sel = document.getElementById('collection-select');
+      sel.innerHTML = '<option value="">Select a collection...</option>' +
+        collections.map(function(c) {
+          return '<option value="' + escHtml(c.id) + '">' + escHtml(c.title) + ' (' + c.productsCount.count + ' products)</option>';
+        }).join('');
+    })
+    .catch(function() {
+      document.getElementById('collection-select').innerHTML = '<option value="">Error loading collections</option>';
+    });
+
+  // ── Load markets ──
+  fetch('/api/markets')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      markets = (data.markets || []).filter(function(m) { return m.enabled && m.priceList; });
+      var grid = document.getElementById('markets-grid');
+      if (!markets.length) { grid.innerHTML = '<div style="color:#aaa;font-size:11px">No markets found</div>'; return; }
+      grid.innerHTML = markets.map(function(m) {
+        return '<label class="market-check" id="mc-' + m.id.replace(/\//g, '-') + '">' +
+          '<input type="checkbox" value="' + escHtml(m.id) + '" data-market-id="' + escHtml(m.id) + '">' +
+          '<span><div class="market-check__name">' + escHtml(m.name) + '</div>' +
+          '<div class="market-check__currency">' + escHtml(m.priceList.currency.currencyCode) + '</div></span>' +
+        '</label>';
+      }).join('');
+      grid.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          cb.closest('.market-check').classList.toggle('checked', cb.checked);
+        });
+      });
+    })
+    .catch(function() {
+      document.getElementById('markets-grid').innerHTML = '<div style="color:#aaa;font-size:11px">Error loading markets</div>';
+    });
+
+  // ── Preview ──
+  document.getElementById('preview-btn').addEventListener('click', function() {
+    var collectionId = document.getElementById('collection-select').value;
+    var discountPct = parseFloat(document.getElementById('discount-pct').value);
+    var selectedMarkets = getSelectedMarkets();
+
+    if (!collectionId) { showAlert('Please select a collection.', 'error'); return; }
+    if (!discountPct || discountPct < 1 || discountPct > 99) { showAlert('Please enter a discount between 1 and 99.', 'error'); return; }
+    if (!selectedMarkets.length) { showAlert('Please select at least one market.', 'error'); return; }
+    clearAlert();
+
+    var btn = document.getElementById('preview-btn');
+    btn.disabled = true; btn.textContent = 'Loading...';
+
+    fetch('/api/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collectionId: collectionId, discountPct: discountPct, markets: selectedMarkets })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      previewData = data;
+      renderPreview(data, selectedMarkets);
+      goToStep(2);
+    })
+    .catch(function(err) {
+      showAlert('Preview failed: ' + err.message, 'error');
+    })
+    .finally(function() { btn.disabled = false; btn.textContent = 'Preview Changes →'; });
+  });
+
+  function getSelectedMarkets() {
+    var selected = [];
+    document.querySelectorAll('#markets-grid input[type=checkbox]:checked').forEach(function(cb) {
+      var market = markets.find(function(m) { return m.id === cb.value; });
+      if (market) selected.push({ id: market.id, name: market.name, priceListId: market.priceList.id, currencyCode: market.priceList.currency.currencyCode });
+    });
+    return selected;
+  }
+
+  function renderPreview(data, selectedMarkets) {
+    var tabs = document.getElementById('preview-tabs');
+    tabs.innerHTML = selectedMarkets.map(function(m, i) {
+      return '<button class="preview-market-tab' + (i === 0 ? ' active' : '') + '" data-market-id="' + escHtml(m.id) + '">' + escHtml(m.name) + '</button>';
+    }).join('');
+    activePreviewMarket = selectedMarkets[0].id;
+    tabs.querySelectorAll('.preview-market-tab').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        tabs.querySelectorAll('.preview-market-tab').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        activePreviewMarket = btn.dataset.marketId;
+        renderPreviewList(data, activePreviewMarket);
+      });
+    });
+    document.getElementById('preview-count').textContent = data.total + ' variants affected';
+    renderPreviewList(data, activePreviewMarket);
+  }
+
+  function renderPreviewList(data, marketId) {
+    var list = document.getElementById('preview-list');
+    var html = '<div class="preview-header"><span>Product / Variant</span><span>Current Price</span><span>RRP</span><span>New Sale Price</span></div>';
+    data.variants.forEach(function(v) {
+      var mp = v.markets.find(function(m) { return m.marketId === marketId; });
+      if (!mp) return;
+      html += '<div class="preview-row">' +
+        '<div class="preview-row__product">' +
+          '<div class="preview-row__title">' + escHtml(v.productTitle) + '</div>' +
+          '<div class="preview-row__variant">' + escHtml(v.variantTitle !== 'Default Title' ? v.variantTitle : '') + '</div>' +
+        '</div>' +
+        '<div class="preview-row__price">' + fmt(mp.currentPrice, mp.currencyCode) + '</div>' +
+        '<div class="preview-row__rpp">' + fmt(mp.compareAtPrice, mp.currencyCode) + '</div>' +
+        '<div class="preview-row__new">' + fmt(mp.newPrice, mp.currencyCode) + '</div>' +
+      '</div>';
+    });
+    list.innerHTML = html;
+  }
+
+  function fmt(amount, currency) {
+    return new Intl.NumberFormat('en-AU', { style: 'currency', currency: currency || 'AUD' }).format(amount);
+  }
+
+  // ── Apply ──
+  document.getElementById('apply-btn').addEventListener('click', function() {
+    if (!previewData) return;
+    var btn = document.getElementById('apply-btn');
+    btn.disabled = true; btn.textContent = 'Applying...';
+    clearAlert();
+
+    var collectionId = document.getElementById('collection-select').value;
+    var discountPct  = parseFloat(document.getElementById('discount-pct').value);
+    var jobTitle     = document.getElementById('job-title').value.trim() ||
+                       discountPct + '% off ' + previewData.collectionTitle;
+    var selectedMarkets = getSelectedMarkets();
+
+    fetch('/api/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobTitle: jobTitle,
+        collectionId: collectionId,
+        collectionTitle: previewData.collectionTitle,
+        discountPct: discountPct,
+        variants: previewData.variants,
+        markets: selectedMarkets
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      document.getElementById('done-summary').textContent =
+        previewData.total + ' variants updated across ' + selectedMarkets.length + ' market' + (selectedMarkets.length > 1 ? 's' : '');
+      goToStep(3);
+    })
+    .catch(function(err) {
+      showAlert('Apply failed: ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Apply Price Changes';
+    });
+  });
+
+  document.getElementById('done-btn').addEventListener('click', function() {
+    resetJob();
+    showTab('jobs');
+  });
+
+  // ── Back ──
+  document.getElementById('back-btn').addEventListener('click', function() { goToStep(1); });
+  document.getElementById('back-btn-2').addEventListener('click', function() { goToStep(1); });
+
+  function goToStep(n) {
+    document.getElementById('step-1').style.display = n === 1 ? '' : 'none';
+    document.getElementById('step-2').style.display = n === 2 ? '' : 'none';
+    document.getElementById('step-3').style.display = n === 3 ? '' : 'none';
+    [1,2,3].forEach(function(i) {
+      var el = document.getElementById('step-' + i + '-indicator');
+      el.classList.toggle('active', i === n);
+      el.classList.toggle('done', i < n);
+    });
+  }
+
+  function resetJob() {
+    document.getElementById('job-title').value = '';
+    document.getElementById('collection-select').value = '';
+    document.getElementById('discount-pct').value = '';
+    document.querySelectorAll('#markets-grid input[type=checkbox]').forEach(function(cb) {
+      cb.checked = false;
+      cb.closest('.market-check').classList.remove('checked');
+    });
+    previewData = null;
+    goToStep(1);
+  }
+
+  // ── Job history ──
+  function loadJobs() {
+    document.getElementById('jobs-list').innerHTML = '<div class="loading">Loading...</div>';
+    fetch('/api/jobs')
+      .then(function(r) { return r.json(); })
+      .then(function(data) { renderJobs(data.jobs || []); })
+      .catch(function() {
+        document.getElementById('jobs-list').innerHTML = '<div class="empty">Error loading jobs</div>';
+      });
+  }
+
+  function renderJobs(jobs) {
+    var el = document.getElementById('jobs-list');
+    if (!jobs.length) { el.innerHTML = '<div class="empty">No jobs yet — create your first price change job</div>'; return; }
+    el.innerHTML = jobs.map(function(j) {
+      var date = new Date(j.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) +
+                 ' ' + new Date(j.created_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+      var badge = j.status === 'applied'
+        ? '<span class="badge badge--green">Applied</span>'
+        : '<span class="badge badge--grey">Reverted</span>';
+      return '<div class="job-row">' +
+        '<div>' +
+          '<div class="job-row__title">' + escHtml(j.title) + '</div>' +
+          '<div class="job-row__meta">' + escHtml(j.collection_title) + ' · ' + j.discount_pct + '% off · ' + j.variant_count + ' variants · ' + escHtml((j.markets || []).join(', ')) + ' · ' + date + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:12px">' +
+          badge +
+          (j.status === 'applied' ? '<button class="btn btn--danger" data-job-id="' + j.id + '" onclick="revertJob(this)">Revert</button>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  window.revertJob = function(btn) {
+    if (!confirm('Revert this job? This will restore original prices for all affected variants.')) return;
+    var jobId = btn.getAttribute('data-job-id');
+    btn.disabled = true; btn.textContent = 'Reverting...';
+    fetch('/api/revert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId: jobId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      showAlert('Job reverted — original prices restored.', 'success');
+      loadJobs();
+    })
+    .catch(function(err) {
+      showAlert('Revert failed: ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Revert';
+    });
+  };
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadJobs();
+</script>
+</body>
+</html>
