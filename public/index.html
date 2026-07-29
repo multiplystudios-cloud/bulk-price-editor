@@ -192,6 +192,10 @@
               <span class="input-suffix">%</span>
             </div>
             <div class="form-hint">New price = compare-at price (RRP) × (1 − discount%). Works correctly for items already on sale.</div>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer">
+              <input type="checkbox" id="round-whole" style="width:14px;height:14px;accent-color:#121212">
+              <span style="font-size:11px;letter-spacing:0.06em">Round sale price to whole number (e.g. $104.97 → $105)</span>
+            </label>
           </div>
         </div>
       </div>
@@ -423,9 +427,10 @@
     var btn = document.getElementById('preview-btn');
     btn.disabled = true; btn.textContent = 'Loading...';
 
+    var roundWhole = document.getElementById('round-whole').checked;
     var body = selectionMode === 'collection'
-      ? { collectionId: collectionId, discountPct: discountPct, markets: selectedMarkets }
-      : { variantIds: selectedVariants, discountPct: discountPct, markets: selectedMarkets };
+      ? { collectionId: collectionId, discountPct: discountPct, markets: selectedMarkets, roundWhole: roundWhole }
+      : { variantIds: selectedVariants, discountPct: discountPct, markets: selectedMarkets, roundWhole: roundWhole };
 
     fetch('/api/preview', {
       method: 'POST',

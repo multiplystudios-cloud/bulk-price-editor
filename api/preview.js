@@ -83,7 +83,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { collectionId, variantIds, discountPct, markets } = req.body;
+    const { collectionId, variantIds, discountPct, markets, roundWhole } = req.body;
     if ((!collectionId && !variantIds) || !discountPct) return res.status(400).json({ error: 'Missing params' });
 
     let variants, collectionTitle;
@@ -113,7 +113,8 @@ module.exports = async function handler(req, res) {
         const priceMap = await getMarketPrices(market.priceListId, [variant.variantId]);
         const current = priceMap[variant.variantId];
         const rpp = current ? current.compareAtPrice || current.price : variant.compareAtPrice || variant.price;
-        const newPrice = Math.round(rpp * (1 - discountPct / 100) * 100) / 100;
+        const raw = rpp * (1 - discountPct / 100);
+        const newPrice = roundWhole ? Math.round(raw) : Math.round(raw * 100) / 100;
         const currency = current ? current.currencyCode : 'AUD';
         marketPreviews.push({
           marketId: market.id,
