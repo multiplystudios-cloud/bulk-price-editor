@@ -48,6 +48,28 @@
     .market-check__currency { font-size: 10px; color: #888; }
     .market-check.checked { border-color: #121212; background: #fafafa; }
 
+    /* Selection mode toggle */
+    .mode-toggle { display: flex; gap: 2px; background: #e8e8e8; border-radius: 6px; padding: 3px; margin-bottom: 20px; width: fit-content; }
+    .mode-btn { padding: 7px 18px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; border: none; background: none; border-radius: 4px; cursor: pointer; color: #666; }
+    .mode-btn.active { background: #fff; color: #121212; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+    /* Product picker */
+    .product-search-wrap { position: relative; margin-bottom: 12px; }
+    .product-results { border: 1px solid #e0e0e0; border-radius: 6px; max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
+    .product-result-item { padding: 12px 16px; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+    .product-result-item:last-child { border-bottom: none; }
+    .product-result-item:hover { background: #fafafa; }
+    .product-result-item__title { font-size: 12px; font-weight: 500; letter-spacing: 0.05em; }
+    .product-result-item__variants { font-size: 10px; color: #888; margin-top: 3px; }
+    .selected-variants { border: 1px solid #e0e0e0; border-radius: 6px; min-height: 60px; max-height: 280px; overflow-y: auto; }
+    .selected-variant-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #f5f5f5; gap: 12px; }
+    .selected-variant-row:last-child { border-bottom: none; }
+    .selected-variant-row__name { font-size: 11px; letter-spacing: 0.05em; flex: 1; min-width: 0; }
+    .selected-variant-row__product { font-size: 10px; color: #888; }
+    .selected-variant-row__remove { background: none; border: none; cursor: pointer; color: #aaa; font-size: 16px; padding: 0 4px; line-height: 1; }
+    .selected-variant-row__remove:hover { color: #c0392b; }
+    .selected-count { font-size: 10px; color: #888; letter-spacing: 0.06em; margin-bottom: 8px; }
+
     /* Step indicator */
     .steps { display: flex; gap: 0; margin-bottom: 24px; }
     .step { flex: 1; padding: 10px 16px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 2px solid #e8e8e8; color: #bbb; text-align: center; }
@@ -138,10 +160,30 @@
             <input class="form-input" id="job-title" type="text" placeholder="e.g. End of Season 30% Off">
           </div>
           <div class="form-row">
-            <label class="form-label">Collection</label>
-            <select class="form-select" id="collection-select">
-              <option value="">Loading collections...</option>
-            </select>
+            <label class="form-label">Select products by</label>
+            <div class="mode-toggle">
+              <button class="mode-btn active" data-mode="collection">Collection</button>
+              <button class="mode-btn" data-mode="individual">Individual Products</button>
+            </div>
+
+            <!-- Collection mode -->
+            <div id="mode-collection">
+              <select class="form-select" id="collection-select">
+                <option value="">Loading collections...</option>
+              </select>
+            </div>
+
+            <!-- Individual mode -->
+            <div id="mode-individual" style="display:none">
+              <div class="product-search-wrap">
+                <input class="form-input" id="product-search" type="text" placeholder="Search products...">
+              </div>
+              <div class="product-results" id="product-results" style="display:none"></div>
+              <div class="selected-count" id="selected-count" style="display:none"></div>
+              <div class="selected-variants" id="selected-variants" style="display:none">
+                <div class="empty" style="padding:20px;font-size:10px">No products selected yet — search above</div>
+              </div>
+            </div>
           </div>
           <div class="form-row">
             <label class="form-label">Discount %</label>
@@ -208,6 +250,9 @@
   var markets = [];
   var previewData = null;
   var activePreviewMarket = null;
+  var selectionMode = 'collection'; // 'collection' | 'individual'
+  var selectedVariants = []; // [{ variantId, productId, productTitle, variantTitle, image }]
+  var searchTimer = null;
 
   // ── Nav tabs ──
   function showTab(name) {
@@ -230,6 +275,99 @@
     if (type === 'success') setTimeout(function() { el.innerHTML = ''; }, 4000);
   }
   function clearAlert() { document.getElementById('alert-bar').innerHTML = ''; }
+
+  // ── Mode toggle ──
+  document.querySelectorAll('.mode-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      selectionMode = btn.dataset.mode;
+      document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('mode-collection').style.display = selectionMode === 'collection' ? '' : 'none';
+      document.getElementById('mode-individual').style.display = selectionMode === 'individual' ? '' : 'none';
+    });
+  });
+
+  // ── Product search ──
+  document.getElementById('product-search').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    var q = this.value.trim();
+    if (!q) { document.getElementById('product-results').style.display = 'none'; return; }
+    searchTimer = setTimeout(function() { searchProducts(q); }, 300);
+  });
+
+  function searchProducts(q) {
+    var resultsEl = document.getElementById('product-results');
+    resultsEl.style.display = '';
+    resultsEl.innerHTML = '<div class="loading" style="padding:16px">Searching...</div>';
+    fetch('/api/products?search=' + encodeURIComponent(q))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var products = data.products || [];
+        if (!products.length) { resultsEl.innerHTML = '<div class="empty" style="padding:16px">No products found</div>'; return; }
+        resultsEl.innerHTML = products.map(function(p) {
+          var variantCount = p.variants.nodes.length;
+          return '<div class="product-result-item" data-product-id="' + escHtml(p.id) + '">' +
+            '<div class="product-result-item__title">' + escHtml(p.title) + '</div>' +
+            '<div class="product-result-item__variants">' + variantCount + ' variant' + (variantCount !== 1 ? 's' : '') + ' — click to add all, or expand</div>' +
+            '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">' +
+            p.variants.nodes.map(function(v) {
+              return '<button class="btn btn--outline" style="padding:4px 10px;font-size:9px" ' +
+                'data-variant-id="' + escHtml(v.id) + '" ' +
+                'data-product-id="' + escHtml(p.id) + '" ' +
+                'data-product-title="' + escHtml(p.title) + '" ' +
+                'data-variant-title="' + escHtml(v.title) + '" ' +
+                'data-image="' + escHtml(p.featuredImage ? p.featuredImage.url : '') + '" ' +
+                'onclick="addVariant(this)">' +
+                escHtml(v.title === 'Default Title' ? 'Add' : v.title) +
+              '</button>';
+            }).join('') +
+            '</div>' +
+          '</div>';
+        }).join('');
+      })
+      .catch(function() { resultsEl.innerHTML = '<div class="empty" style="padding:16px">Search failed</div>'; });
+  }
+
+  window.addVariant = function(btn) {
+    var variantId = btn.getAttribute('data-variant-id');
+    if (selectedVariants.find(function(v) { return v.variantId === variantId; })) return;
+    selectedVariants.push({
+      variantId: variantId,
+      productId: btn.getAttribute('data-product-id'),
+      productTitle: btn.getAttribute('data-product-title'),
+      variantTitle: btn.getAttribute('data-variant-title'),
+      image: btn.getAttribute('data-image')
+    });
+    renderSelectedVariants();
+    btn.textContent = '✓';
+    btn.disabled = true;
+  };
+
+  function renderSelectedVariants() {
+    var el = document.getElementById('selected-variants');
+    var countEl = document.getElementById('selected-count');
+    el.style.display = '';
+    countEl.style.display = '';
+    countEl.textContent = selectedVariants.length + ' variant' + (selectedVariants.length !== 1 ? 's' : '') + ' selected';
+    if (!selectedVariants.length) {
+      el.innerHTML = '<div class="empty" style="padding:20px;font-size:10px">No products selected yet — search above</div>';
+      return;
+    }
+    el.innerHTML = selectedVariants.map(function(v, i) {
+      return '<div class="selected-variant-row">' +
+        '<div class="selected-variant-row__name">' +
+          escHtml(v.productTitle) +
+          (v.variantTitle && v.variantTitle !== 'Default Title' ? ' — <span class="selected-variant-row__product">' + escHtml(v.variantTitle) + '</span>' : '') +
+        '</div>' +
+        '<button class="selected-variant-row__remove" onclick="removeVariant(' + i + ')">×</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  window.removeVariant = function(i) {
+    selectedVariants.splice(i, 1);
+    renderSelectedVariants();
+  };
 
   // ── Load collections ──
   fetch('/api/collections')
@@ -276,7 +414,8 @@
     var discountPct = parseFloat(document.getElementById('discount-pct').value);
     var selectedMarkets = getSelectedMarkets();
 
-    if (!collectionId) { showAlert('Please select a collection.', 'error'); return; }
+    if (selectionMode === 'collection' && !collectionId) { showAlert('Please select a collection.', 'error'); return; }
+    if (selectionMode === 'individual' && !selectedVariants.length) { showAlert('Please select at least one product variant.', 'error'); return; }
     if (!discountPct || discountPct < 1 || discountPct > 99) { showAlert('Please enter a discount between 1 and 99.', 'error'); return; }
     if (!selectedMarkets.length) { showAlert('Please select at least one market.', 'error'); return; }
     clearAlert();
@@ -284,10 +423,14 @@
     var btn = document.getElementById('preview-btn');
     btn.disabled = true; btn.textContent = 'Loading...';
 
+    var body = selectionMode === 'collection'
+      ? { collectionId: collectionId, discountPct: discountPct, markets: selectedMarkets }
+      : { variantIds: selectedVariants, discountPct: discountPct, markets: selectedMarkets };
+
     fetch('/api/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ collectionId: collectionId, discountPct: discountPct, markets: selectedMarkets })
+      body: JSON.stringify(body)
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {

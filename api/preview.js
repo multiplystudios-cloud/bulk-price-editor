@@ -83,10 +83,26 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { collectionId, discountPct, markets } = req.body;
-    if (!collectionId || !discountPct) return res.status(400).json({ error: 'Missing params' });
+    const { collectionId, variantIds, discountPct, markets } = req.body;
+    if ((!collectionId && !variantIds) || !discountPct) return res.status(400).json({ error: 'Missing params' });
 
-    const { variants, collectionTitle } = await getCollectionVariants(collectionId);
+    let variants, collectionTitle;
+    if (collectionId) {
+      ({ variants, collectionTitle } = await getCollectionVariants(collectionId));
+    } else {
+      collectionTitle = 'Selected Products';
+      variants = variantIds.map(function(v) {
+        return {
+          variantId: v.variantId,
+          productId: v.productId,
+          productTitle: v.productTitle,
+          variantTitle: v.variantTitle,
+          image: v.image || null,
+          price: 0,
+          compareAtPrice: null
+        };
+      });
+    }
 
     // Build preview per variant per market
     const results = [];
