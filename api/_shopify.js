@@ -18,11 +18,30 @@ async function shopifyGraphQL(query, variables = {}) {
     }
   );
 
-  const json = await res.json();
-  if (json.errors) {
-    console.error('Shopify GraphQL error:', JSON.stringify(json.errors));
-    throw new Error(json.errors[0].message);
+  const text = await res.text();
+  console.log('Shopify HTTP status:', res.status);
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    console.error('Shopify non-JSON response:', text.slice(0, 500));
+    throw new Error(`Shopify returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
   }
+
+  if (json.errors) {
+    const errMsg = Array.isArray(json.errors)
+      ? json.errors[0].message
+      : String(json.errors);
+    console.error('Shopify GraphQL errors:', JSON.stringify(json.errors));
+    throw new Error(errMsg);
+  }
+
+  if (!json.data) {
+    console.error('Shopify unexpected response:', JSON.stringify(json));
+    throw new Error(`Shopify unexpected response (HTTP ${res.status})`);
+  }
+
   return json.data;
 }
 
